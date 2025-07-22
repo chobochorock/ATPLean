@@ -16,3 +16,11 @@ scope = "leanprover-community"
 
 [[lean_lib]]
 name = "ATPLean"
+
+[package]
+name = "myproject"
+lean_version = "leanprover/lean4:nightly"
+require = ["mathlib"]
+
+[dependencies]
+mathlib = { git = "https://github.com/leanprover-community/mathlib4", rev = "master" }
