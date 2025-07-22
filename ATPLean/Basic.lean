@@ -30,53 +30,52 @@ example : ∀ m n : Nat, Even n → Even (m * n) := by
 
 
 
-inductive BiTree where
-    | none : BiTree
-    | node : BiTree
-    | children : BiTree → BiTree → BiTree-- (t1 : BiTree) (t2 : BiTree)
+inductive MyTree where
+    | leaf : MyTree
+    | branch : List MyTree → MyTree-- (t1 : MyTree) (t2 : MyTree)
 
-open BiTree
+open MyTree
 
-def is_not_none : BiTree → ℕ
-    | BiTree.none => 0
-    | _ => 1
-    -- | BiTree.node => 1
-    -- | BiTree.children t1 t2 => 1
 
-def num_of_vertex : BiTree → ℕ
-    | BiTree.none => 0
-    | BiTree.node => 1
-    | BiTree.children t1 t2 => num_of_vertex t1 + num_of_vertex t2 + 1
+def num_of_vertex : MyTree → ℕ
+ --    | MyTree.none => 0
+    | MyTree.leaf => 1
+    | MyTree.branch l => List.foldl (fun acc b ↦ acc + num_of_vertex b) 0 l + 1
+--    | MyTree.branch t1 t2 => num_of_vertex t1 + num_of_vertex t2 + 1
 
-def num_of_edge : BiTree → ℕ
-    | BiTree.none => 0
-    | BiTree.node => 0
-    | BiTree.children t1 t2 => num_of_edge t1 + num_of_edge t2+ is_not_none t1 + is_not_none t2
+def num_of_edge : MyTree → ℕ
+    | MyTree.leaf => 0
+    | MyTree.branch l => List.foldl (fun acc b ↦ acc + 1 + num_of_edge b) 0 l
 
-#eval num_of_vertex (children node (children none node)) -- by open BiTree
-#eval num_of_edge (BiTree.children BiTree.node (BiTree.children BiTree.none BiTree.node))
+#eval num_of_vertex (branch [leaf, branch [leaf]]) -- by open MyTree
+#eval num_of_edge (branch [leaf, branch [leaf]])
 
-theorem vertex_eq_edge_plus_one : ∀t : BiTree,
-    (t ≠ none) → (num_of_vertex t = num_of_edge t + 1) := by
-    intro t
-    induction t with
-        -- | none => sorry
-        -- | node => sorry
-        -- | children t1 t2 ih1 ih2 => sorry
-        | none =>
-            -- BiTree.none의 경우
-            simp
-        | node =>
-            -- BiTree.node의 경우
-            simp [num_of_vertex, num_of_edge]
-        | children t1 t2 ih1 ih2 =>
-            -- 귀납 가정:
-            -- ih1 : num_of_vertex t1 = num_of_edge t1 + 1
-            -- ih2 : num_of_vertex t2 = num_of_edge t2 + 1
-            simp [num_of_vertex, num_of_edge, is_not_none]
-            cases t1 <;> cases t2 <;> simp [is_not_none] at *
-            -- 모든 경우의 수를 나눠서 계산
-            repeat
-                rw [ih1, ih2]
-                decide
-    -- induction' n with n ih
+theorem vertex_eq_edge_plus_one (t : MyTree):
+    (num_of_vertex t = num_of_edge t + 1) := match t with
+    | leaf => 
+    | branch [] => 
+--    intro t
+--    induction t with
+--         -- | none => sorry
+--         -- | leaf => sorry
+--         -- | branch t1 t2 ih1 ih2 => sorry
+--             -- MyTree.none의 경우
+--         | leaf =>
+--             -- MyTree.leaf의 경우
+--             simp [num_of_vertex, num_of_edge]
+--         | branch t1 t2 ih1 ih2 =>
+--             -- 귀납 가정:
+--             -- ih1 : num_of_vertex t1 = num_of_edge t1 + 1
+--             -- ih2 : num_of_vertex t2 = num_of_edge t2 + 1
+--             simp [num_of_vertex, num_of_edge, is_not_none]
+--             cases t1 <;> cases t2 <;> simp [is_not_none] at *
+--             -- 모든 경우의 수를 나눠서 계산
+--             repeat
+--                 rw [ih1, ih2]
+--                 decide
+--     -- induction' n with n ih
+
+
+
+
+    
