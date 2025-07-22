@@ -40,42 +40,24 @@ open MyTree
 def num_of_vertex : MyTree → ℕ
  --    | MyTree.none => 0
     | MyTree.leaf => 1
-    | MyTree.branch l => List.foldl (fun acc b ↦ acc + num_of_vertex b) 0 l + 1
+    | MyTree.branch l => List.foldr (fun b acc ↦ acc + num_of_vertex b) 0 l + 1
 --    | MyTree.branch t1 t2 => num_of_vertex t1 + num_of_vertex t2 + 1
 
 def num_of_edge : MyTree → ℕ
     | MyTree.leaf => 0
-    | MyTree.branch l => List.foldl (fun acc b ↦ acc + 1 + num_of_edge b) 0 l
+    | MyTree.branch l => List.foldr (fun b acc ↦ acc + 1 + num_of_edge b) 0 l
 
 #eval num_of_vertex (branch [leaf, branch [leaf]]) -- by open MyTree
 #eval num_of_edge (branch [leaf, branch [leaf]])
 
-theorem vertex_eq_edge_plus_one (t : MyTree):
+theorem vertex_eq_edge_plus_one (t : MyTree) :
     (num_of_vertex t = num_of_edge t + 1) := match t with
-    | leaf => 
-    | branch [] => 
---    intro t
---    induction t with
---         -- | none => sorry
---         -- | leaf => sorry
---         -- | branch t1 t2 ih1 ih2 => sorry
---             -- MyTree.none의 경우
---         | leaf =>
---             -- MyTree.leaf의 경우
---             simp [num_of_vertex, num_of_edge]
---         | branch t1 t2 ih1 ih2 =>
---             -- 귀납 가정:
---             -- ih1 : num_of_vertex t1 = num_of_edge t1 + 1
---             -- ih2 : num_of_vertex t2 = num_of_edge t2 + 1
---             simp [num_of_vertex, num_of_edge, is_not_none]
---             cases t1 <;> cases t2 <;> simp [is_not_none] at *
---             -- 모든 경우의 수를 나눠서 계산
---             repeat
---                 rw [ih1, ih2]
---                 decide
---     -- induction' n with n ih
-
-
-
-
-    
+    | leaf => by simp [num_of_vertex, num_of_edge]
+    | branch [] => by simp [num_of_vertex, num_of_edge]
+    | branch (x :: xs) => by
+        simp [num_of_vertex, num_of_edge]
+        have h_x := vertex_eq_edge_plus_one x
+        have h_xs := vertex_eq_edge_plus_one (branch xs)
+        simp [num_of_vertex, num_of_edge] at h_xs
+        rw [h_x, h_xs]
+        ring
