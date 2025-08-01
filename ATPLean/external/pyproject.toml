@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "lean-interact>=0.8.0",
     "openai>=1.95.1",
     "transformers>=4.53.2",
 ]

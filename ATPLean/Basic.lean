@@ -1,6 +1,4 @@
 import Mathlib
--- import Mathlib.inductive
-
 def hello := "world"
 
 universe u
@@ -17,6 +15,8 @@ def F (α : Type u) : Type u := Prod α α
 
 #eval (fun x => 2 * x) 10
 
+#eval (fun x => 2 * x)  (-1 * 2.200000000000000000000000000000000000000000000000000000000001)
+
 #check F
 -- #check F p
 
@@ -24,12 +24,14 @@ def F (α : Type u) : Type u := Prod α α
 example : ∀ m n : Nat, Even n → Even (m * n) := by
   rintro m n ⟨k, hk⟩; use m * k; rw [hk]; ring
 
+
 example : ∀ m n : Nat, Even n → Even (m * n) := by
     intros; simp [*,]
---   intros; simp [*, parity_simps]
+--   intros; fllkhalsdfkh
+-- hello 
 
-
-
+-- read_file --
+-- read_start --
 inductive MyTree where
     | leaf : MyTree
     | branch : List MyTree → MyTree-- (t1 : MyTree) (t2 : MyTree)
@@ -61,3 +63,4 @@ theorem vertex_eq_edge_plus_one (t : MyTree) :
         simp [num_of_vertex, num_of_edge] at h_xs
         rw [h_x, h_xs]
         ring
+-- read_end --
