@@ -15,7 +15,7 @@ def F (α : Type u) : Type u := Prod α α
 
 #eval (fun x => 2 * x) 10
 
-#eval (fun x => 2 * x)  (-1 * 2.200000000000000000000000000000000000000000000000000000000001)
+#eval (fun x => 2 * x)  (-1 * 2.2)
 
 #check F
 -- #check F p
