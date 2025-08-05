@@ -75,7 +75,19 @@ class LeanReader:
     
     def extract_definitions_section(self) -> List[str]:
         """Extract content marked with -- definitions --."""
-        marker_indices = self.find_marker_indices("-- definitions --") 
+        return self.extract_section_content("-- definitions --")
+    
+    def extract_imports_section(self) -> List[str]:
+        """Extract content marked with -- imports --."""
+        return self.extract_section_content("-- imports --")
+    
+    def extract_problems_section(self) -> List[str]:
+        """Extract content marked with -- problems --."""
+        return self.extract_section_content("-- problems --")
+    
+    def extract_section_content(self, marker: str) -> List[str]:
+        """Extract content for any section marker."""
+        marker_indices = self.find_marker_indices(marker) 
         if not marker_indices:
             return []
         
@@ -91,6 +103,17 @@ class LeanReader:
                 break
                 
         return self.content[start_idx + 1:end_idx]
+    
+    def get_available_sections(self) -> List[str]:
+        """Get list of all section markers found in the file."""
+        sections = []
+        section_patterns = ["-- imports --", "-- problems --", "-- definitions --"]
+        
+        for pattern in section_patterns:
+            if self.find_marker_indices(pattern):
+                sections.append(pattern)
+        
+        return sections
     
     def extract_inductive_types(self) -> List[Dict[str, any]]:
         """Extract inductive type definitions."""
@@ -206,9 +229,10 @@ class LeanReader:
         
         return {
             'file_path': str(self.file_path),
-            'readable_section': self.extract_readable_section(),
-            'read_file_section': self.extract_from_read_file_marker(),
+            'imports_section': self.extract_imports_section(),
+            'problems_section': self.extract_problems_section(),
             'definitions_section': self.extract_definitions_section(),
+            'available_sections': self.get_available_sections(),
             'inductive_types': self.extract_inductive_types(),
             'functions': self.extract_functions(),
             'theorems': self.extract_theorems(),
@@ -255,6 +279,38 @@ if __name__ == "__main__":
     
     if reader.read_file():
         content = reader.get_all_content()
+        
+        print("=== AVAILABLE SECTIONS ===")
+        for section in content['available_sections']:
+            print(f"Found section: {section}")
+        print()
+        
+        print("=== IMPORTS SECTION ===")
+        imports = content['imports_section']
+        if imports:
+            for line in imports[:5]:  # Show first 5 lines
+                print(f"  {line.strip()}")
+        else:
+            print("  No imports section found")
+        print()
+        
+        print("=== PROBLEMS SECTION ===")
+        problems = content['problems_section']
+        if problems:
+            for line in problems[:5]:  # Show first 5 lines
+                print(f"  {line.strip()}")
+        else:
+            print("  No problems section found")
+        print()
+        
+        print("=== DEFINITIONS SECTION ===")
+        definitions = content['definitions_section']
+        if definitions:
+            for line in definitions[:5]:  # Show first 5 lines
+                print(f"  {line.strip()}")
+        else:
+            print("  No definitions section found")
+        print()
         
         print("=== INDUCTIVE TYPES ===")
         for inductive in content['inductive_types']:
