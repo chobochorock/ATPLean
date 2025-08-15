@@ -15,11 +15,11 @@ class GenericTree:
     Generic tree structure for parsing various tree-like Lean expressions.
     Not tied to any specific implementation like MyTree.
     """
-    
-    def __init__(self, node_type: str, children: List['GenericTree'] = None):
+
+    def __init__(self, node_type: str, children: List['GenericTree'] = []):
         self.node_type = node_type  # 'leaf', 'branch', etc.
-        self.children = children or []
-    
+        self.children = children
+
     def __str__(self):
         if self.node_type == 'leaf':
             return 'leaf'
@@ -28,26 +28,26 @@ class GenericTree:
             return f'branch [{children_str}]'
         else:
             return f'{self.node_type}({", ".join(str(child) for child in self.children)})'
-    
+
     def count_nodes(self) -> int:
         """Count total nodes in the tree."""
         return 1 + sum(child.count_nodes() for child in self.children)
-    
+
     def count_edges(self) -> int:
         """Count total edges in the tree."""
         return len(self.children) + sum(child.count_edges() for child in self.children)
-    
+
     def height(self) -> int:
         """Calculate tree height."""
         if not self.children:
             return 1
         return 1 + max(child.height() for child in self.children)
-    
+
     @staticmethod
     def leaf():
         """Create a leaf node."""
         return GenericTree('leaf')
-    
+
     @staticmethod
     def branch(children: List['GenericTree']):
         """Create a branch node with given children."""
@@ -179,21 +179,22 @@ class LeanInteractParser:
         try:
             with open(file_path, 'r') as f:
                 content = f.read()
-            
+
             # Send the entire file content to Lean server
-            response = self.server.run(Command(cmd=content, env=self.current_env))
-            
+            response = self.server.run(
+                Command(cmd=content, env=self.current_env))
+
             if isinstance(response, LeanError):
                 print(f"Error loading file: {response.message}")
                 return False
-            
+
             # Update environment
             self.current_env = response.env
-            
+
             # Extract information from the response
             self._process_lean_response(response, content)
             return True
-            
+
         except Exception as e:
             print(f"Error loading file {file_path}: {e}")
             return False
@@ -202,7 +203,7 @@ class LeanInteractParser:
         """Process Lean server response and extract information."""
         # Extract definitions and theorems from content using simple text processing
         lines = content.split('\n')
-        
+
         for line in lines:
             line = line.strip()
             if line.startswith('inductive '):
@@ -211,12 +212,12 @@ class LeanInteractParser:
                 self._process_definition_line(line)
             elif line.startswith('theorem ') or line.startswith('lemma '):
                 self._process_theorem_line(line)
-        
+
         # Process any sorries (incomplete proofs) from the response
         if hasattr(response, 'sorries') and response.sorries:
             for sorry in response.sorries:
                 self._process_sorry(sorry)
-    
+
     def _process_inductive_line(self, line: str) -> None:
         """Process an inductive type definition line."""
         # Extract inductive name
@@ -224,13 +225,13 @@ class LeanInteractParser:
         if match:
             name = match.group(1)
             self.problem_structure.add_definition(f"inductive {name}")
-    
+
     def _process_definition_line(self, line: str) -> None:
         """Process a definition line."""
         # Extract definition
         if ':' in line:
             self.problem_structure.add_definition(line)
-    
+
     def _process_theorem_line(self, line: str) -> None:
         """Process a theorem or lemma line."""
         # Extract theorem statement
@@ -239,11 +240,12 @@ class LeanInteractParser:
             theorem_type, name, params, statement = match.groups()
             theorem_text = f"{name}{params.strip()}: {statement.strip()}"
             self.problem_structure.add_theorem(theorem_text)
-            
+
             # Create root state node
-            root_state = StateNode("theorem_root", f"{theorem_type.title()}: {name}")
+            root_state = StateNode(
+                "theorem_root", f"{theorem_type.title()}: {name}")
             self.problem_structure.add_proof_state(root_state)
-    
+
     def _process_sorry(self, sorry) -> None:
         """Process a sorry (incomplete proof) from Lean server."""
         goal_text = getattr(sorry, 'goal', 'Unknown goal')
@@ -255,59 +257,62 @@ class LeanInteractParser:
         try:
             # Add theorem with sorry to get the goals
             theorem_cmd = f"theorem temp_theorem : {theorem_statement} := sorry"
-            response = self.server.run(Command(cmd=theorem_cmd, env=self.current_env))
-            
+            response = self.server.run(
+                Command(cmd=theorem_cmd, env=self.current_env))
+
             if isinstance(response, LeanError):
                 return {"error": response.message}
-            
+
             # Extract goals from sorries
             goals = []
             if hasattr(response, 'sorries') and response.sorries:
                 goals = [sorry.goal for sorry in response.sorries]
-            
+
             return {
                 "success": True,
                 "env": response.env,
                 "goals": goals,
                 "sorries": response.sorries if hasattr(response, 'sorries') else []
             }
-            
+
         except Exception as e:
             return {"error": str(e)}
-    
+
     def apply_tactic(self, tactic: str, proof_state: int) -> Optional[Dict[str, Any]]:
         """Apply a tactic to a proof state."""
         try:
-            response = self.server.run(ProofStep(tactic=tactic, proof_state=proof_state))
-            
+            response = self.server.run(
+                ProofStep(tactic=tactic, proof_state=proof_state))
+
             if isinstance(response, LeanError):
                 return {"error": response.message}
-            
+
             return {
                 "success": True,
                 "proof_state": response.proof_state,
                 "goals": response.goals,
                 "proof_status": response.proof_status
             }
-            
+
         except Exception as e:
             return {"error": str(e)}
-    
+
     def evaluate_expression(self, expression: str) -> Optional[Dict[str, Any]]:
         """Evaluate a Lean expression."""
         try:
             eval_cmd = f"#eval {expression}"
-            response = self.server.run(Command(cmd=eval_cmd, env=self.current_env))
-            
+            response = self.server.run(
+                Command(cmd=eval_cmd, env=self.current_env))
+
             if isinstance(response, LeanError):
                 return {"error": response.message}
-            
+
             return {
                 "success": True,
                 "result": response,
                 "env": response.env
             }
-            
+
         except Exception as e:
             return {"error": str(e)}
 
@@ -320,7 +325,7 @@ class LeanInteractParser:
             r'leaf',
             r'branch\s*\[[^\]]*\]'
         ]
-        
+
         for pattern in tree_patterns:
             matches = re.finditer(pattern, content)
             for match in matches:
@@ -424,6 +429,8 @@ def load_lean_file_with_interact(file_path: str, config: Optional[LeanREPLConfig
         return LeanProblemStructure()  # Empty structure
 
 # Backward compatibility alias
+
+
 def parse_lean_file(file_path: str) -> LeanProblemStructure:
     """Backward compatibility function - now uses lean_interact."""
     return load_lean_file_with_interact(file_path)
@@ -452,7 +459,8 @@ if __name__ == "__main__":
         tree = tree_parser.parse_tree_expression(expr)
         if tree:
             print(f"Result: {tree}")
-            print(f"Vertices: {tree.count_nodes()}, Edges: {tree.count_edges()}")
+            print(
+                f"Vertices: {tree.count_nodes()}, Edges: {tree.count_edges()}")
             vertices = tree.count_nodes()
             edges = tree.count_edges()
             print(f"Relation holds: {vertices == edges + 1}")
@@ -464,26 +472,28 @@ if __name__ == "__main__":
     try:
         config = LeanREPLConfig(verbose=True)
         parser = LeanInteractParser(config)
-        
+
         # Test creating a simple theorem
         print("Testing theorem creation...")
         result = parser.create_theorem("∀ n : ℕ, n + 0 = n")
         if result and "success" in result:
             print(f"  Theorem created successfully")
             print(f"  Goals: {result.get('goals', [])}")
-            
+
             # Test applying a tactic if we have sorries
             if result.get('sorries'):
                 proof_state = result['sorries'][0].pos
-                print(f"  Testing tactic application on proof state {proof_state}...")
+                print(
+                    f"  Testing tactic application on proof state {proof_state}...")
                 tactic_result = parser.apply_tactic("simp", proof_state)
                 if tactic_result and "success" in tactic_result:
-                    print(f"    Tactic result: {tactic_result['proof_status']}")
+                    print(
+                        f"    Tactic result: {tactic_result['proof_status']}")
                 else:
                     print(f"    Tactic failed: {tactic_result}")
         else:
             print(f"  Theorem creation failed: {result}")
-            
+
         # Test loading a file if Basic.lean exists
         print("Testing file loading...")
         basic_file = "../Basic.lean"
@@ -498,7 +508,7 @@ if __name__ == "__main__":
                 print("Failed to load Basic.lean")
         except Exception as e:
             print(f"Error loading file: {e}")
-            
+
     except Exception as e:
         print(f"LeanInteract test failed: {e}")
         print("Make sure lean_interact is properly installed and configured")
@@ -515,4 +525,3 @@ if __name__ == "__main__":
     for eval_expr in test_evals:
         result = evaluator.evaluate_eval_command(eval_expr)
         print(f"Eval: {eval_expr} = {result}")
-
