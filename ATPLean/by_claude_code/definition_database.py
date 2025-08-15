@@ -14,8 +14,13 @@ import hashlib
 import re
 from datetime import datetime
 
-from lean_problem_reader import LeanReader
-from lean_expression_parser import LeanExpressionParser
+# Updated to use lean_interact versions
+from lean_problem_reader_interact import LeanInteractReader as LeanReader
+from lean_expression_parser_interact import LeanInteractExpressionParser as LeanExpressionParser
+
+# Original imports (commented out for backup)
+# from lean_problem_reader import LeanReader
+# from lean_expression_parser import LeanExpressionParser
 
 
 class DefinitionType(Enum):

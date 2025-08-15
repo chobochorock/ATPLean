@@ -1,3 +1,10 @@
 /.lake
 venv/
 .venv/
+
+.claude
+__pycache__
+*.db*
+*.pth
+*.log
+*.vocab

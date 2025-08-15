@@ -11,8 +11,12 @@ from pathlib import Path
 from dataclasses import dataclass
 from enum import Enum
 
-from lean_problem_reader import LeanReader
-from lean_problem_parser import LeanProblemParser
+# Updated to use lean_interact version
+from lean_problem_reader_interact import LeanInteractReader as LeanReader
+
+# Original import (commented out for backup)
+# from lean_problem_reader import LeanReader
+from lean_problem_parser import LeanInteractParser, load_lean_file_with_interact
 from reinforcement_learning_node import RLStateNode, TacticAction, RLProofEnvironment
 
 

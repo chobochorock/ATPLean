@@ -217,11 +217,10 @@ class Goal2VecModel(nn.Module):
         
         return score.squeeze(-1)
     
-    def get_goal_embedding(self, goal_tokens: List[str], tokenizer: MathTokenizer) -> np.ndarray:
+    def get_goal_embedding(self, goal_tokens: List[str], tokenizer: MathTokenizer, vocab_to_id: Dict[str, int]) -> np.ndarray:
         """Get embedding for a goal string."""
-        # Convert tokens to IDs (simplified)
-        token_to_id = {token: i for i, token in enumerate(tokenizer.vocab)}
-        token_ids = [token_to_id.get(token, 0) for token in goal_tokens]
+        # Convert tokens to IDs using the actual training vocabulary
+        token_ids = [vocab_to_id.get(token, 0) for token in goal_tokens]
         
         # Pad sequence
         max_len = 50
@@ -230,12 +229,12 @@ class Goal2VecModel(nn.Module):
         else:
             token_ids = token_ids[:max_len]
         
-        token_tensor = torch.LongTensor([token_ids])
+        token_tensor = torch.LongTensor([token_ids]).to(self.goal_embeddings.weight.device)
         
         with torch.no_grad():
             embedding = self.encode_goal(token_tensor)
         
-        return embedding.numpy().flatten()
+        return embedding.cpu().numpy().flatten()
 
 
 class Goal2VecTrainer:
@@ -338,22 +337,39 @@ class Goal2VecTrainer:
             goal_ids = self._tokens_to_ids(goal_tokens)
             tactic_ids = self._tokens_to_ids(tactic_tokens)
             
+            # Ensure we have non-empty sequences (add padding token if empty)
+            if len(goal_ids) == 0:
+                goal_ids = [0]  # Use padding/unknown token
+            if len(tactic_ids) == 0:
+                tactic_ids = [0]  # Use padding/unknown token
+            
             goals.append(goal_ids)
             tactics.append(tactic_ids)
             labels.append(1.0)
             
-            # Negative example (random tactic)
-            random_tactic = np.random.choice([pair[1] for pair in self.goal_tactic_pairs])
-            random_tactic_tokens = self.tokenizer.tokenize(random_tactic)
-            random_tactic_ids = self._tokens_to_ids(random_tactic_tokens)
-            
-            goals.append(goal_ids)
-            tactics.append(random_tactic_ids)
-            labels.append(0.0)
+            # Negative example (random tactic) - only if we have pairs available
+            if len(self.goal_tactic_pairs) > 1:
+                random_tactic = np.random.choice([pair[1] for pair in self.goal_tactic_pairs])
+                random_tactic_tokens = self.tokenizer.tokenize(random_tactic)
+                random_tactic_ids = self._tokens_to_ids(random_tactic_tokens)
+                
+                # Ensure non-empty sequence
+                if len(random_tactic_ids) == 0:
+                    random_tactic_ids = [0]
+                
+                goals.append(goal_ids)
+                tactics.append(random_tactic_ids)
+                labels.append(0.0)
         
-        # Pad sequences
-        max_goal_len = max(len(g) for g in goals)
-        max_tactic_len = max(len(t) for t in tactics)
+        # Pad sequences - ensure we have sequences to work with
+        if not goals or not tactics:
+            # Return minimal valid tensors if no data
+            return torch.zeros((1, 1), dtype=torch.long).to(self.device), \
+                   torch.zeros((1, 1), dtype=torch.long).to(self.device), \
+                   torch.zeros(1).to(self.device)
+        
+        max_goal_len = max(len(g) for g in goals) if goals else 1
+        max_tactic_len = max(len(t) for t in tactics) if tactics else 1
         
         goal_tensor = torch.zeros(len(goals), max_goal_len, dtype=torch.long)
         tactic_tensor = torch.zeros(len(tactics), max_tactic_len, dtype=torch.long)
@@ -370,6 +386,9 @@ class Goal2VecTrainer:
     
     def train(self, epochs: Optional[int] = None) -> None:
         """Train the Goal2Vec model."""
+        import time
+        start_time = time.time()
+        
         if epochs is None:
             epochs = self.config.epochs
         
@@ -425,6 +444,9 @@ class Goal2VecTrainer:
                 print(f"Epoch {epoch}: Train Loss={avg_train_loss:.4f}, Val Loss={val_loss:.4f}")
         
         print("Training completed!")
+        
+        # Store training time
+        self._training_time = time.time() - start_time
     
     def _validate(self, val_pairs: List[Tuple[str, str]], criterion) -> float:
         """Validate the model."""
@@ -448,7 +470,7 @@ class Goal2VecTrainer:
     def get_goal_embedding(self, goal: str) -> np.ndarray:
         """Get embedding for a goal."""
         goal_tokens = self.tokenizer.tokenize(goal)
-        return self.model.get_goal_embedding(goal_tokens, self.tokenizer)
+        return self.model.get_goal_embedding(goal_tokens, self.tokenizer, self.vocab_to_id)
     
     def find_similar_goals(self, query_goal: str, candidate_goals: List[str], 
                           top_k: int = 5) -> List[Tuple[str, float]]:
@@ -505,6 +527,214 @@ class Goal2VecTrainer:
         # Sort by score
         tactic_scores.sort(key=lambda x: x[1], reverse=True)
         return tactic_scores[:top_k]
+    
+    def find_similar_goals_from_training(self, query_goal: str, top_k: int = 5) -> List[Tuple[str, float]]:
+        """Find goals similar to query goal from training data."""
+        candidate_goals = [pair[0] for pair in self.goal_tactic_pairs]
+        if not candidate_goals:
+            return []
+        return self.find_similar_goals(query_goal, candidate_goals, top_k)
+    
+    def recommend_tactics_from_training(self, goal: str, top_k: int = 5) -> List[Tuple[str, float]]:
+        """Recommend tactics for a given goal from training data."""
+        candidate_tactics = list(set([pair[1] for pair in self.goal_tactic_pairs]))
+        if not candidate_tactics:
+            return []
+        return self.recommend_tactics(goal, candidate_tactics, top_k)
+    
+    def solve_analogy(self, goal_a: str, tactic_a: str, goal_b: str, 
+                     candidate_tactics: List[str] = None, top_k: int = 5) -> List[Tuple[str, float]]:
+        """
+        Word2Vec 스타일 아날로지 해결: goal_a is to tactic_a as goal_b is to X
+        
+        예시: "∀ n : ℕ, n + 0 = n" is to "simp" as "∀ n : ℕ, 0 + n = n" is to X
+        
+        논문의 공식을 따라: x̂ = ARGMAX_{x∈V} sim(x, tactic_a + goal_b - goal_a)
+        """
+        if candidate_tactics is None:
+            candidate_tactics = list(set([pair[1] for pair in self.goal_tactic_pairs]))
+        
+        if not candidate_tactics:
+            return []
+        
+        # 벡터 임베딩 얻기
+        goal_a_emb = self.get_goal_embedding(goal_a)
+        goal_b_emb = self.get_goal_embedding(goal_b)
+        tactic_a_emb = self._get_tactic_embedding(tactic_a)
+        
+        # Word2Vec 아날로지 공식: tactic_a + goal_b - goal_a
+        target_vector = tactic_a_emb + goal_b_emb - goal_a_emb
+        
+        # 모든 후보 전술과의 유사도 계산
+        similarities = []
+        for candidate_tactic in candidate_tactics:
+            candidate_emb = self._get_tactic_embedding(candidate_tactic)
+            
+            # 코사인 유사도
+            similarity = np.dot(target_vector, candidate_emb) / (
+                np.linalg.norm(target_vector) * np.linalg.norm(candidate_emb)
+            )
+            similarities.append((candidate_tactic, similarity))
+        
+        # 유사도 순으로 정렬
+        similarities.sort(key=lambda x: x[1], reverse=True)
+        return similarities[:top_k]
+    
+    def _get_tactic_embedding(self, tactic: str) -> np.ndarray:
+        """전술의 임베딩 벡터를 얻습니다."""
+        tactic_tokens = self.tokenizer.tokenize(tactic)
+        tactic_ids = self._tokens_to_ids(tactic_tokens)
+        
+        # 패딩
+        max_len = 50
+        if len(tactic_ids) < max_len:
+            tactic_ids.extend([0] * (max_len - len(tactic_ids)))
+        else:
+            tactic_ids = tactic_ids[:max_len]
+        
+        tactic_tensor = torch.LongTensor([tactic_ids]).to(self.device)
+        
+        with torch.no_grad():
+            # 전술 인코더를 사용하여 임베딩 생성
+            tactic_embedding = self.model.encode_tactic(tactic_tensor)
+        
+        return tactic_embedding.cpu().numpy().flatten()
+    
+    def mathematical_analogy_examples(self) -> Dict[str, List[Tuple[str, float]]]:
+        """
+        수학적 아날로지 예제들을 보여줍니다.
+        예: 자연수 덧셈 → 실수 덧셈, 덧셈 → 곱셈 등
+        """
+        examples = {}
+        
+        # 예제 1: 자연수 → 실수 아날로지
+        nat_goal = "∀ n : ℕ, n + 0 = n"
+        nat_tactic = "simp"
+        real_goal = "∀ x : ℝ, x + 0 = x"
+        
+        examples["자연수_to_실수"] = self.solve_analogy(nat_goal, nat_tactic, real_goal, top_k=3)
+        
+        # 예제 2: 덧셈 → 곱셈 아날로지  
+        add_goal = "∀ a b : ℕ, a + b = b + a"
+        add_tactic = "ring"
+        mul_goal = "∀ a b : ℕ, a * b = b * a"
+        
+        examples["덧셈_to_곱셈"] = self.solve_analogy(add_goal, add_tactic, mul_goal, top_k=3)
+        
+        return examples
+    
+    def solve_analogy_levy2014a(self, goal_a: str, tactic_a: str, goal_b: str, 
+                               candidate_tactics: List[str] = None, top_k: int = 5) -> List[Tuple[str, float]]:
+        """
+        Levy(2014a)의 개선된 아날로지 공식 구현:
+        x̂ = ARGMAX_{x∈V} sim(x, goal_b) + sim(x, tactic_a) - sim(x, goal_a)
+        
+        논문에서 언급한 3개 유사도의 합으로 계산하는 방식
+        """
+        if candidate_tactics is None:
+            candidate_tactics = list(set([pair[1] for pair in self.goal_tactic_pairs]))
+        
+        if not candidate_tactics:
+            return []
+        
+        # 기준 벡터들 얻기
+        goal_a_emb = self.get_goal_embedding(goal_a)
+        goal_b_emb = self.get_goal_embedding(goal_b)
+        tactic_a_emb = self._get_tactic_embedding(tactic_a)
+        
+        similarities = []
+        for candidate_tactic in candidate_tactics:
+            candidate_emb = self._get_tactic_embedding(candidate_tactic)
+            
+            # 3개 유사도 계산
+            sim_goal_b = np.dot(candidate_emb, goal_b_emb) / (
+                np.linalg.norm(candidate_emb) * np.linalg.norm(goal_b_emb)
+            )
+            sim_tactic_a = np.dot(candidate_emb, tactic_a_emb) / (
+                np.linalg.norm(candidate_emb) * np.linalg.norm(tactic_a_emb)
+            )
+            sim_goal_a = np.dot(candidate_emb, goal_a_emb) / (
+                np.linalg.norm(candidate_emb) * np.linalg.norm(goal_a_emb)
+            )
+            
+            # Levy의 공식: sim(x, goal_b) + sim(x, tactic_a) - sim(x, goal_a)
+            score = sim_goal_b + sim_tactic_a - sim_goal_a
+            similarities.append((candidate_tactic, score))
+        
+        similarities.sort(key=lambda x: x[1], reverse=True)
+        return similarities[:top_k]
+    
+    def solve_analogy_levy2014b(self, goal_a: str, tactic_a: str, goal_b: str, 
+                               candidate_tactics: List[str] = None, top_k: int = 5) -> List[Tuple[str, float]]:
+        """
+        Levy(2014b)의 곱셈 기반 아날로지 공식:
+        x̂ = ARGMAX_{x∈V} sim(x, goal_b) * sim(x, tactic_a) / sim(x, goal_a)
+        
+        논문에서 약간 더 나은 성능을 보인다고 언급된 방식
+        """
+        if candidate_tactics is None:
+            candidate_tactics = list(set([pair[1] for pair in self.goal_tactic_pairs]))
+        
+        if not candidate_tactics:
+            return []
+        
+        # 기준 벡터들 얻기
+        goal_a_emb = self.get_goal_embedding(goal_a)
+        goal_b_emb = self.get_goal_embedding(goal_b)
+        tactic_a_emb = self._get_tactic_embedding(tactic_a)
+        
+        similarities = []
+        for candidate_tactic in candidate_tactics:
+            candidate_emb = self._get_tactic_embedding(candidate_tactic)
+            
+            # 3개 유사도 계산
+            sim_goal_b = np.dot(candidate_emb, goal_b_emb) / (
+                np.linalg.norm(candidate_emb) * np.linalg.norm(goal_b_emb)
+            )
+            sim_tactic_a = np.dot(candidate_emb, tactic_a_emb) / (
+                np.linalg.norm(candidate_emb) * np.linalg.norm(tactic_a_emb)
+            )
+            sim_goal_a = np.dot(candidate_emb, goal_a_emb) / (
+                np.linalg.norm(candidate_emb) * np.linalg.norm(goal_a_emb)
+            )
+            
+            # 0으로 나누기 방지
+            if sim_goal_a <= 1e-8:
+                sim_goal_a = 1e-8
+            
+            # Levy의 곱셈 공식: sim(x, goal_b) * sim(x, tactic_a) / sim(x, goal_a)
+            score = (sim_goal_b * sim_tactic_a) / sim_goal_a
+            similarities.append((candidate_tactic, score))
+        
+        similarities.sort(key=lambda x: x[1], reverse=True)
+        return similarities[:top_k]
+    
+    def compare_analogy_methods(self, goal_a: str, tactic_a: str, goal_b: str, 
+                               candidate_tactics: List[str] = None, top_k: int = 3) -> Dict[str, List[Tuple[str, float]]]:
+        """
+        논문에서 언급한 여러 아날로지 방법들을 비교합니다.
+        """
+        results = {}
+        
+        # 원래 Word2Vec 방식 (벡터 산술)
+        results["Original_Word2Vec"] = self.solve_analogy(goal_a, tactic_a, goal_b, candidate_tactics, top_k)
+        
+        # Levy 2014a 방식 (덧셈/뺄셈)
+        results["Levy2014a_Sum"] = self.solve_analogy_levy2014a(goal_a, tactic_a, goal_b, candidate_tactics, top_k)
+        
+        # Levy 2014b 방식 (곱셈/나눗셈)
+        results["Levy2014b_Mult"] = self.solve_analogy_levy2014b(goal_a, tactic_a, goal_b, candidate_tactics, top_k)
+        
+        return results
+    
+    def get_training_stats(self) -> Dict[str, Any]:
+        """Get training statistics."""
+        return {
+            "final_loss": self.training_losses[-1] if self.training_losses else None,
+            "training_time": getattr(self, '_training_time', 0),
+            "epochs_completed": len(self.training_losses),
+            "validation_loss": self.validation_losses[-1] if self.validation_losses else None
+        }
     
     def save_model(self, filepath: str) -> None:
         """Save trained model."""

@@ -16,8 +16,13 @@ from rl_agent import ProofAgent, ProofTrainer, AgentType, TrainingConfig
 from goal2vec_model import Goal2VecTrainer, EmbeddingConfig, Word2VecGoalComparator
 from minif2f_processor import MinIF2FProcessor, MathProblem, ProblemDifficulty
 from definition_database import DefinitionDatabase, MathDefinition, DefinitionType
-from lean_problem_reader import LeanReader
-from lean_problem_parser import LeanProblemParser
+# Updated to use lean_interact versions
+from lean_problem_reader_interact import LeanInteractReader as LeanReader
+from lean_problem_parser import LeanInteractParser, load_lean_file_with_interact
+
+# Original imports (commented out for backup)
+# from lean_problem_reader import LeanReader
+# from lean_problem_parser import LeanInteractParser, load_lean_file_with_interact
 
 
 class IntegratedTheoremProver:
@@ -119,9 +124,9 @@ class IntegratedTheoremProver:
         elif source == "samples":
             self.problems = self.minif2f_processor._create_sample_problems()
         elif source.endswith(".lean"):
-            # Load from Lean file
-            parser = LeanProblemParser(source)
-            if parser.parse_file():
+            # Load from Lean file using lean_interact
+            parser = LeanInteractParser()
+            if parser.load_lean_file(source):
                 problem_structure = parser.get_problem_structure()
                 # Convert to MathProblem objects
                 for i, theorem in enumerate(problem_structure.theorems):

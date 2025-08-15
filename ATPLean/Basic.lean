@@ -1,4 +1,6 @@
 import Mathlib
+import Lean.Parser
+
 def hello := "world"
 
 universe u
@@ -19,7 +21,6 @@ def F (α : Type u) : Type u := Prod α α
 
 #check F
 -- #check F p
-
 
 example : ∀ m n : Nat, Even n → Even (m * n) := by
   rintro m n ⟨k, hk⟩; use m * k; rw [hk]; ring
@@ -62,5 +63,6 @@ theorem vertex_eq_edge_plus_one (t : MyTree) :
         have h_xs := vertex_eq_edge_plus_one (branch xs)
         simp [num_of_vertex, num_of_edge] at h_xs
         rw [h_x, h_xs]
-        ring
+        abel
+        --ring
 -- read_end --
