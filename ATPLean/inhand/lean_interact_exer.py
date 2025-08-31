@@ -2,9 +2,6 @@ from lean_interact import LeanREPLConfig, LeanServer, ProofStep, Command
 from lean_interact.interface import LeanError
 from rl_node import RLNode
 
-config = LeanREPLConfig(verbose=True)
-server = LeanServer(config)
-
 
 def tacticSelector():
     available_tactics = ["rw []", "intro h", "exact h"]
@@ -12,7 +9,10 @@ def tacticSelector():
 
 
 class Interacting:
-    pass
+    def __init__(self):
+        config = LeanREPLConfig(verbose=True)
+        server = LeanServer(config)
+        self.problem = problem
 
 
 # first_step = server.run(ProofStep(tactic="rw []", proof_state=0))
