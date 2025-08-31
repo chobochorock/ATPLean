@@ -4,7 +4,7 @@ keywords = ["math"]
 defaultTargets = ["ATPLean"]
 
 [leanOptions]
-pp.unicode.fun = true # pretty-prints `fun a ↦ b`
+pp.unicode.fun = true                 # pretty-prints `fun a ↦ b`
 autoImplicit = false
 relaxedAutoImplicit = false
 weak.linter.mathlibStandardSet = true
@@ -26,6 +26,6 @@ require = ["mathlib"]
 mathlib = { git = "https://github.com/leanprover-community/mathlib4", rev = "master" }
 
 [[lean_exe]]
-name = "trustworthy-tool"
-root = "TrustworthyTool"
-exeName = "tt"
+name = "preprocess"
+root = "Preprocess"
+exeName = "pp"
