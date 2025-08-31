@@ -24,3 +24,8 @@ require = ["mathlib"]
 
 [dependencies]
 mathlib = { git = "https://github.com/leanprover-community/mathlib4", rev = "master" }
+
+[[lean_exe]]
+name = "trustworthy-tool"
+root = "TrustworthyTool"
+exeName = "tt"
