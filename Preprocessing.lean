@@ -21,7 +21,7 @@ partial def findLeanFiles (path : System.FilePath) : IO (Array System.FilePath) 
   return leanFiles
 
 -- 실행 파일의 시작점
-def main (args : List String) : IO UInt32 := do
+def QueryingFiles (args : List String) : IO UInt32 := do
   -- 1. 커맨드 라인 인자가 있는지 확인
   if args.isEmpty then
     IO.println "오류: 검색을 시작할 디렉토리 경로를 입력해주세요."
@@ -44,7 +44,7 @@ def main (args : List String) : IO UInt32 := do
 
   return 0 -- 성공 코드
 
-def main (args : List String) : IO UInt32 := do
+def ReadingFile (args : List String) : IO UInt32 := do
   -- 1. 인자가 있는지 확인
   if args.isEmpty then
     IO.eprintln "오류: 파일 경로를 입력해주세요."
@@ -71,3 +71,6 @@ def main (args : List String) : IO UInt32 := do
 
   IO.println s!"\n--- [ {filePath} ] 파일 내용 끝 ---"
   return 0 -- 성공 코드(0)를 반환하며 종료
+
+def main (args : List String) : IO UInt32 := do
+  return (0 : UInt32)
