@@ -27,5 +27,10 @@ mathlib = { git = "https://github.com/leanprover-community/mathlib4", rev = "mas
 
 [[lean_exe]]
 name = "preprocess"
-root = "Preprocess"
+root = "Preprocessing"
 exeName = "pp"
+
+[[lean_exe]]
+name = "ffff"
+root = "ffff"
+exeName = "ff"
