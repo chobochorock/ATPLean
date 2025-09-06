@@ -26,7 +26,7 @@ require = ["mathlib"]
 mathlib = { git = "https://github.com/leanprover-community/mathlib4", rev = "master" }
 
 [[lean_exe]]
-name = "preprocess"
+name = "preprocessing"
 root = "Preprocessing"
 exeName = "pp"
 
