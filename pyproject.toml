@@ -19,3 +19,9 @@ dependencies = [
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
+
+[dependency-groups]
+dev = [
+    "ipykernel>=6.30.1",
+    "jupyter>=1.1.1",
+]
