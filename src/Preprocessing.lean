@@ -1,4 +1,5 @@
 import Init.System.FilePath
+
 -- 지정된 경로에서 시작하여 모든 .lean 파일을 재귀적으로 찾는 함수
 partial def findLeanFiles (path : System.FilePath) : IO (Array System.FilePath) := do
   let mut leanFiles := #[]

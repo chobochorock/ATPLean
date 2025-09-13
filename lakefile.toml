@@ -14,23 +14,29 @@ maxSynthPendingDepth = 3
 name = "mathlib"
 scope = "leanprover-community"
 
+
+[[require]]
+name = "Cli"
+scope = "leanprover"
+
 [[lean_lib]]
 name = "ATPLean"
+srcDir = "./src/"
 
-[package]
-name = "myproject"
-lean_version = "leanprover/lean4:nightly"
-require = ["mathlib"]
+# [package]
+# name = "myproject"
+# lean_version = "leanprover/lean4:nightly"
+# require = ["mathlib"]
 
 [dependencies]
 mathlib = { git = "https://github.com/leanprover-community/mathlib4", rev = "master" }
+lean4-cli = { git = "https://github.com/leanprover/lean4-cli", rev = "main" }
 
+
+[[lean_lib]]
+name = "Preprocessing"
+srcDir = "./src/"
 [[lean_exe]]
-name = "preprocessing"
-root = "Preprocessing"
+name = "preprocessor"
+root = "Preprocessing.Main"
 exeName = "pp"
-
-[[lean_exe]]
-name = "ffff"
-root = "ffff"
-exeName = "ff"
